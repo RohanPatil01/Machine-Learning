@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Nearest Neighbors (KNN)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+
+        .slide-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .slide {
+            background: white;
+            width: 90%;
+            max-width: 1000px;
+            height: 85vh;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 50px;
+            display: none;
+            flex-direction: column;
+            justify-content: flex-start;
+            animation: slideIn 0.5s ease;
+            overflow-y: auto;
+        }
+
+        .slide.active {
+            display: flex;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #764ba2;
+            font-size: 1.4em;
+            margin: 20px 0 10px 0;
+        }
+
+        p, li {
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        ul {
+            margin-left: 40px;
+        }
+
+        .highlight {
+            background: #ffd93d;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .formula {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2em;
+            text-align: center;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .visualization {
+            width: 100%;
+            height: 300px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 1000;
+        }
+
+        button {
+            background: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            background: #667eea;
+            color: white;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .slide-number {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: #667eea;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .pros-cons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .pros, .cons {
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .pros {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+
+        .cons {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+
+        canvas {
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            background: white;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            overflow-x: auto;
+            margin: 15px 0;
+            line-height: 2.2;
+            white-space: pre-wrap;
+        }
+
+        .code-comment {
+            color: #6a9955;
+            font-style: italic;
+        }
+
+        .code-keyword {
+            color: #c586c0;
+            font-weight: bold;
+        }
+
+        .code-function {
+            color: #dcdcaa;
+        }
+
+        .code-number {
+            color: #b5cea8;
+        }
+
+        .code-string {
+            color: #ce9178;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #764ba2;
+            font-size: 1.3em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-number">
+        <span id="current-slide">1</span> / <span id="total-slides">12</span>
+    </div>
+
+    <div class="slide-container">
+        <!-- Slide 1: Title -->
+        <div class="slide active">
+            <h1>K-Nearest Neighbors (KNN)</h1>
+            <div style="text-align: center; margin-top: 60px;">
+                <p style="font-size: 1.5em; color: #666;">A Simple Yet Powerful Machine Learning Algorithm</p>
+            </div>
+        </div>
+
+        <!-- Slide 2: What is KNN? -->
+        <div class="slide">
+            <h2>What is KNN?</h2>
+            <p>K-Nearest Neighbors (KNN) is a <span class="highlight">supervised machine learning algorithm</span> used for both classification and regression tasks.</p>
+            <h3>Core Concept</h3>
+            <p>The algorithm assumes that <span class="highlight">similar data points exist in close proximity</span> to each other.</p>
+            <ul>
+                <li>"Tell me who your neighbors are, and I'll tell you who you are"</li>
+                <li>Makes predictions based on the K closest training examples</li>
+                <li>Non-parametric and lazy learning algorithm</li>
+            </ul>
+        </div>
+
+        <!-- Slide 3: How KNN Works -->
+        <div class="slide">
+            <h2>How KNN Works</h2>
+            <h3>The Algorithm Steps:</h3>
+            <ul>
+                <li><strong>Step 1:</strong> Choose the number K of neighbors</li>
+                <li><strong>Step 2:</strong> Calculate the distance between the query point and all training samples</li>
+                <li><strong>Step 3:</strong> Sort the distances and select the K nearest neighbors</li>
+                <li><strong>Step 4:</strong> For classification: vote by majority class; For regression: calculate the average</li>
+                <li><strong>Step 5:</strong> Assign the predicted class or value to the query point</li>
+            </ul>
+        </div>
+
+        <!-- Slide 4: Distance Metrics -->
+        <div class="slide">
+            <h2>Distance Metrics</h2>
+            <p>KNN relies on distance calculation. Common metrics include:</p>
+            
+            <h3>1. Euclidean Distance (Most Common)</h3>
+            <div class="formula">
+                d = √[(x₂-x₁)² + (y₂-y₁)²]
+            </div>
+            
+            <h3>2. Manhattan Distance</h3>
+            <div class="formula">
+                d = |x₂-x₁| + |y₂-y₁|
+            </div>
+            
+            <h3>3. Minkowski Distance</h3>
+            <div class="formula">
+                d = (Σ|xᵢ-yᵢ|ᵖ)^(1/p)
+            </div>
+        </div>
+
+        <!-- Slide 5: Choosing K -->
+        <div class="slide">
+            <h2>Choosing the Right K Value</h2>
+            <p>The value of K significantly impacts model performance:</p>
+            
+            <h3>Small K (e.g., K=1)</h3>
+            <ul>
+                <li>More sensitive to noise</li>
+                <li>Complex decision boundaries</li>
+                <li>Risk of overfitting</li>
+            </ul>
+            
+            <h3>Large K</h3>
+            <ul>
+                <li>Smoother decision boundaries</li>
+                <li>More robust to outliers</li>
+                <li>Risk of underfitting</li>
+            </ul>
+            
+            <h3>Best Practice</h3>
+            <p><span class="highlight">Use odd values for K</span> in binary classification to avoid ties. Common approach: K = √n (where n is the number of data points)</p>
+        </div>
+
+        <!-- Slide 6: Interactive KNN Animation -->
+        <div class="slide">
+            <h2>How KNN Works - Interactive Demo</h2>
+            <div style="text-align: center; margin-bottom: 15px;">
+                <button id="stepBtn" style="margin-right: 10px;">Next Step</button>
+                <button id="resetBtn" style="margin-right: 10px;">Reset</button>
+                <button id="randomizeBtn">Randomize Data</button>
+                <div style="margin-top: 10px;">
+                    <label for="kSlider" style="font-size: 1.1em; font-weight: bold;">K Value: </label>
+                    <input type="range" id="kSlider" min="1" max="9" value="3" step="2" style="width: 200px; vertical-align: middle;">
+                    <span id="kValue" style="font-size: 1.2em; font-weight: bold; color: #667eea; margin-left: 10px;">3</span>
+                </div>
+            </div>
+            <div class="visualization">
+                <canvas id="knnCanvas" width="700" height="320"></canvas>
+            </div>
+            <div id="stepDescription" style="text-align: center; font-size: 1.2em; font-weight: bold; color: #764ba2; margin-top: 15px; min-height: 50px;">
+                Click "Next Step" to start the animation
+            </div>
+        </div>
+
+        <!-- Slide 7: KNN for Classification -->
+        <div class="slide">
+            <h2>KNN for Classification</h2>
+            <p>In classification problems, KNN uses <span class="highlight">majority voting</span>:</p>
+            
+            <h3>Example: Classifying a Fruit</h3>
+            <ul>
+                <li>New fruit: weight=150g, diameter=7cm</li>
+                <li>Find K=5 nearest neighbors</li>
+                <li>Neighbors: 3 apples, 2 oranges</li>
+                <li><strong>Prediction: Apple</strong> (majority vote)</li>
+            </ul>
+            
+            <h3>Weighted Voting</h3>
+            <p>Closer neighbors can have more influence by assigning weights inversely proportional to distance.</p>
+        </div>
+
+        <!-- Slide 8: KNN for Regression -->
+        <div class="slide">
+            <h2>KNN for Regression</h2>
+            <p>In regression problems, KNN predicts by <span class="highlight">averaging the values</span> of K nearest neighbors:</p>
+            
+            <h3>Example: Predicting House Price</h3>
+            <ul>
+                <li>New house: 3 bedrooms, 2000 sq ft</li>
+                <li>Find K=5 nearest houses</li>
+                <li>Neighbor prices: $300K, $320K, $310K, $305K, $315K</li>
+                <li><strong>Prediction: $310K</strong> (average)</li>
+            </ul>
+            
+            <h3>Weighted Average</h3>
+            <p>Similar to classification, weights can be applied based on distance.</p>
+        </div>
+
+        <!-- Slide 9: Python Implementation -->
+        <div class="slide">
+            <h2>Python Implementation</h2>
+            <div class="code-block"><span class="code-comment"># Import required libraries</span>
+<span class="code-keyword">from</span> sklearn.neighbors <span class="code-keyword">import</span> KNeighborsClassifier
+<span class="code-keyword">from</span> sklearn.model_selection <span class="code-keyword">import</span> train_test_split
+
+<span class="code-comment"># Split data into training and testing sets</span>
+X_train, X_test, y_train, y_test = <span class="code-function">train_test_split</span>(
+    X, y, 
+    test_size=<span class="code-number">0.2</span>, 
+    random_state=<span class="code-number">42</span>
+)
+
+<span class="code-comment"># Create KNN classifier with K=5</span>
+knn = <span class="code-function">KNeighborsClassifier</span>(n_neighbors=<span class="code-number">5</span>)
+
+<span class="code-comment"># Train the model</span>
+knn.<span class="code-function">fit</span>(X_train, y_train)
+
+<span class="code-comment"># Make predictions on test data</span>
+predictions = knn.<span class="code-function">predict</span>(X_test)
+
+<span class="code-comment"># Calculate accuracy score</span>
+accuracy = knn.<span class="code-function">score</span>(X_test, y_test)
+
+<span class="code-comment"># Print results</span>
+<span class="code-function">print</span>(<span class="code-string">f"Model Accuracy: {accuracy:.2f}"</span>)</div>
+        </div>
+
+        <!-- Slide 10: Pros and Cons -->
+        <div class="slide">
+            <h2>Advantages & Disadvantages</h2>
+            <div class="pros-cons">
+                <div class="pros">
+                    <h3>✅ Advantages</h3>
+                    <ul style="margin-left: 20px; font-size: 1.1em;">
+                        <li>Simple and intuitive</li>
+                        <li>No training phase</li>
+                        <li>Naturally handles multi-class cases</li>
+                        <li>Effective with small datasets</li>
+                        <li>Non-parametric</li>
+                    </ul>
+                </div>
+                <div class="cons">
+                    <h3>❌ Disadvantages</h3>
+                    <ul style="margin-left: 20px; font-size: 1.1em;">
+                        <li>Slow prediction time</li>
+                        <li>High memory requirements</li>
+                        <li>Sensitive to irrelevant features</li>
+                        <li>Curse of dimensionality</li>
+                        <li>Requires feature scaling</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 11: Best Practices -->
+        <div class="slide">
+            <h2>Best Practices & Tips</h2>
+            
+            <h3>1. Feature Scaling</h3>
+            <p>Always normalize or standardize features to prevent dominance by features with larger scales.</p>
+            
+            <h3>2. Handle Missing Values</h3>
+            <p>Impute or remove missing data before applying KNN.</p>
+            
+            <h3>3. Dimensionality Reduction</h3>
+            <p>Use PCA or feature selection to reduce dimensions for better performance.</p>
+            
+            <h3>4. Cross-Validation</h3>
+            <p>Use cross-validation to find the optimal K value.</p>
+            
+            <h3>5. Use KD-Trees or Ball Trees</h3>
+            <p>For large datasets, use efficient data structures to speed up neighbor search.</p>
+        </div>
+
+        <!-- Slide 12: Applications -->
+        <div class="slide">
+            <h2>Real-World Applications</h2>
+            
+            <h3>1. Recommendation Systems</h3>
+            <p>Netflix, Amazon - recommending products based on similar users</p>
+            
+            <h3>2. Image Recognition</h3>
+            <p>Handwriting detection, face recognition</p>
+            
+            <h3>3. Medical Diagnosis</h3>
+            <p>Classifying diseases based on patient symptoms</p>
+            
+            <h3>4. Credit Rating</h3>
+            <p>Predicting creditworthiness based on similar customers</p>
+            
+            <h3>5. Pattern Recognition</h3>
+            <p>Fraud detection, anomaly detection</p>
+        </div>
+
+        <!-- Slide 13: Interview Questions -->
+        <div class="slide">
+            <h2>Top KNN Interview Questions</h2>
+            
+            <h3>Q1: Why is KNN called a lazy learner?</h3>
+            <p><strong>Answer:</strong> KNN doesn't learn a discriminative function from training data. It simply stores the training dataset and performs computation only during prediction time, making it "lazy."</p>
+            
+            <h3>Q2: How do you choose the optimal value of K?</h3>
+            <p><strong>Answer:</strong> Use cross-validation techniques. Start with K = √n. Small K causes overfitting, large K causes underfitting. Always use odd K for binary classification to avoid ties.</p>
+            
+            <h3>Q3: Why is feature scaling important in KNN?</h3>
+            <p><strong>Answer:</strong> KNN uses distance metrics. Features with larger scales will dominate the distance calculation. Normalization or standardization ensures all features contribute equally.</p>
+        </div>
+
+        <!-- Slide 14: More Interview Questions -->
+        <div class="slide">
+            <h2>More Interview Questions</h2>
+            
+            <h3>Q4: What is the curse of dimensionality in KNN?</h3>
+            <p><strong>Answer:</strong> As dimensions increase, data becomes sparse, distances become less meaningful, and computational cost increases exponentially. Solution: Use dimensionality reduction (PCA, feature selection).</p>
+            
+            <h3>Q5: What are the time complexities?</h3>
+            <p><strong>Answer:</strong> Training: O(1) - just stores data. Prediction: O(n×d) where n is training samples and d is dimensions. Can be optimized using KD-trees or Ball trees to O(d log n).</p>
+            
+            <h3>Q6: How does KNN handle imbalanced datasets?</h3>
+            <p><strong>Answer:</strong> KNN struggles with imbalanced data. Solutions include: weighted KNN (closer neighbors have more weight), SMOTE for oversampling minority class, or using distance-weighted voting.</p>
+        </div>
+
+        <!-- Slide 15: Advanced Interview Questions -->
+        <div class="slide">
+            <h2>Advanced Interview Questions</h2>
+            
+            <h3>Q7: KNN vs K-Means: What's the difference?</h3>
+            <p><strong>Answer:</strong> KNN is supervised (classification/regression), K-Means is unsupervised (clustering). KNN uses K neighbors for prediction, K-Means finds K cluster centroids.</p>
+            
+            <h3>Q8: When should you NOT use KNN?</h3>
+            <p><strong>Answer:</strong> Avoid KNN when: dataset is very large (slow prediction), high dimensionality (curse of dimensionality), features have missing values, real-time predictions needed, or memory is limited.</p>
+            
+            <h3>Q9: What is weighted KNN?</h3>
+            <p><strong>Answer:</strong> Assigns weights to neighbors inversely proportional to their distance (w = 1/distance). Closer neighbors have more influence on the final prediction, reducing the impact of outliers.</p>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="prevBtn" onclick="changeSlide(-1)">← Previous</button>
+        <button id="nextBtn" onclick="changeSlide(1)">Next →</button>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+        
+        document.getElementById('total-slides').textContent = totalSlides;
+        
+        // KNN Animation Variables
+        let animationStep = 0;
+        let kValue = 3;
+        let canvas, ctx;
+        let redPoints, bluePoints, newPoint;
+        let distances = [];
+        let nearestNeighbors = [];
+        
+        function initializeKNNData() {
+            redPoints = [
+                {x: 150, y: 100}, {x: 200, y: 80}, {x: 170, y: 150},
+                {x: 230, y: 120}, {x: 190, y: 200}, {x: 140, y: 180},
+                {x: 210, y: 170}, {x: 160, y: 130}
+            ];
+            
+            bluePoints = [
+                {x: 450, y: 100}, {x: 500, y: 150}, {x: 470, y: 200},
+                {x: 530, y: 120}, {x: 550, y: 180}, {x: 490, y: 90},
+                {x: 520, y: 220}, {x: 460, y: 160}
+            ];
+            
+            newPoint = {x: 350, y: 150};
+            distances = [];
+            nearestNeighbors = [];
+            animationStep = 0;
+        }
+        
+        function randomizeKNNData() {
+            // Generate random red points (left-center cluster)
+            redPoints = [];
+            for (let i = 0; i < 8; i++) {
+                redPoints.push({
+                    x: Math.random() * 250 + 100,  // x between 100-350
+                    y: Math.random() * 200 + 50   // y between 50-250
+                });
+            }
+            
+            // Generate random blue points (right-center cluster)
+            bluePoints = [];
+            for (let i = 0; i < 8; i++) {
+                bluePoints.push({
+                    x: Math.random() * 250 + 350, // x between 350-600
+                    y: Math.random() * 200 + 50   // y between 50-250
+                });
+            }
+            
+            // Random new point (somewhere in the middle overlap area)
+            newPoint = {
+                x: Math.random() * 200 + 250,  // x between 250-450
+                y: Math.random() * 200 + 50    // y between 50-250
+            };
+            
+            distances = [];
+            nearestNeighbors = [];
+            animationStep = 0;
+            drawKNNAnimation();
+        }
+        
+        function calculateDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        }
+        
+        function findNearestNeighbors() {
+            distances = [];
+            
+            redPoints.forEach((p, idx) => {
+                distances.push({
+                    point: p,
+                    distance: calculateDistance(newPoint, p),
+                    color: 'red',
+                    index: idx
+                });
+            });
+            
+            bluePoints.forEach((p, idx) => {
+                distances.push({
+                    point: p,
+                    distance: calculateDistance(newPoint, p),
+                    color: 'blue',
+                    index: idx
+                });
+            });
+            
+            distances.sort((a, b) => a.distance - b.distance);
+            nearestNeighbors = distances.slice(0, kValue);
+        }
+        
+        function drawKNNAnimation() {
+            if (!ctx) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const stepDescriptions = [
+                "Step 1: All data points are plotted on the canvas",
+                "Step 2: Points are colored based on their classes (Red = Class A, Blue = Class B)",
+                "Step 3: A new unknown point (green) needs to be classified",
+                "Step 4: Calculate Euclidean distance from new point to all existing points",
+                "Step 5: Select K=" + kValue + " nearest neighbors based on distance",
+                "Step 6: Majority voting - Assign the most common class to the new point"
+            ];
+            
+            document.getElementById('stepDescription').textContent = stepDescriptions[animationStep] || stepDescriptions[5];
+            
+            // Step 0: Draw all points in gray
+            if (animationStep === 0) {
+                [...redPoints, ...bluePoints].forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 7, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#999';
+                    ctx.fill();
+                    ctx.strokeStyle = '#666';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+            }
+            
+            // Step 1+: Draw colored points
+            if (animationStep >= 1) {
+                redPoints.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.fill();
+                    ctx.strokeStyle = '#c0392b';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+                
+                bluePoints.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#3498db';
+                    ctx.fill();
+                    ctx.strokeStyle = '#2980b9';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                });
+            }
+            
+            // Step 2+: Draw new point
+            if (animationStep >= 2) {
+                ctx.beginPath();
+                ctx.arc(newPoint.x, newPoint.y, 10, 0, 2 * Math.PI);
+                ctx.fillStyle = animationStep < 5 ? '#95a5a6' : (getMajorityClass() === 'red' ? '#e74c3c' : '#3498db');
+                ctx.fill();
+                ctx.strokeStyle = '#2ecc71';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+            
+            // Step 3: Show distance lines
+            if (animationStep === 3) {
+                [...redPoints, ...bluePoints].forEach(p => {
+                    ctx.beginPath();
+                    ctx.moveTo(newPoint.x, newPoint.y);
+                    ctx.lineTo(p.x, p.y);
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                });
+            }
+            
+            // Step 4+: Highlight K nearest neighbors
+            if (animationStep >= 4) {
+                findNearestNeighbors();
+                
+                nearestNeighbors.forEach(neighbor => {
+                    // Draw line to nearest neighbors
+                    ctx.beginPath();
+                    ctx.moveTo(newPoint.x, newPoint.y);
+                    ctx.lineTo(neighbor.point.x, neighbor.point.y);
+                    ctx.strokeStyle = neighbor.color === 'red' ? 'rgba(231, 76, 60, 0.6)' : 'rgba(52, 152, 219, 0.6)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // Highlight the neighbor
+                    ctx.beginPath();
+                    ctx.arc(neighbor.point.x, neighbor.point.y, 12, 0, 2 * Math.PI);
+                    ctx.strokeStyle = '#2ecc71';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                });
+                
+                // Draw circle showing K-neighborhood
+                if (nearestNeighbors.length > 0) {
+                    const maxDist = nearestNeighbors[nearestNeighbors.length - 1].distance;
+                    ctx.beginPath();
+                    ctx.arc(newPoint.x, newPoint.y, maxDist, 0, 2 * Math.PI);
+                    ctx.strokeStyle = 'rgba(46, 204, 113, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+            
+            // Add labels
+            if (animationStep >= 1) {
+                ctx.font = 'bold 14px Arial';
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillText('Class A', 150, 280);
+                
+                ctx.fillStyle = '#3498db';
+                ctx.fillText('Class B', 470, 280);
+            }
+            
+            // Show voting results
+            if (animationStep >= 4) {
+                const redCount = nearestNeighbors.filter(n => n.color === 'red').length;
+                const blueCount = nearestNeighbors.filter(n => n.color === 'blue').length;
+                
+                ctx.font = 'bold 16px Arial';
+                ctx.fillStyle = '#333';
+                ctx.fillText(`Red votes: ${redCount}`, 30, 30);
+                ctx.fillText(`Blue votes: ${blueCount}`, 30, 55);
+                ctx.fillText(`K = ${kValue}`, 30, 80);
+            }
+        }
+        
+        function getMajorityClass() {
+            const redCount = nearestNeighbors.filter(n => n.color === 'red').length;
+            const blueCount = nearestNeighbors.filter(n => n.color === 'blue').length;
+            return redCount > blueCount ? 'red' : 'blue';
+        }
+        
+        function nextStep() {
+            if (animationStep < 5) {
+                animationStep++;
+                drawKNNAnimation();
+            }
+        }
+        
+        function resetAnimation() {
+            initializeKNNData();
+            drawKNNAnimation();
+        }
+        
+        function showSlide(n) {
+            slides.forEach(slide => slide.classList.remove('active'));
+            
+            if (n >= totalSlides) currentSlide = totalSlides - 1;
+            if (n < 0) currentSlide = 0;
+            
+            slides[currentSlide].classList.add('active');
+            document.getElementById('current-slide').textContent = currentSlide + 1;
+            
+            document.getElementById('prevBtn').disabled = currentSlide === 0;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides - 1;
+            
+            // Initialize KNN animation when on that slide
+            if (currentSlide === 5) {
+                setTimeout(() => {
+                    canvas = document.getElementById('knnCanvas');
+                    if (canvas) {
+                        ctx = canvas.getContext('2d');
+                        initializeKNNData();
+                        drawKNNAnimation();
+                        
+                        // Setup event listeners
+                        const stepBtn = document.getElementById('stepBtn');
+                        const resetBtn = document.getElementById('resetBtn');
+                        const randomizeBtn = document.getElementById('randomizeBtn');
+                        const kSlider = document.getElementById('kSlider');
+                        
+                        if (stepBtn) {
+                            stepBtn.onclick = nextStep;
+                        }
+                        if (resetBtn) {
+                            resetBtn.onclick = resetAnimation;
+                        }
+                        if (randomizeBtn) {
+                            randomizeBtn.onclick = function() {
+                                randomizeKNNData();
+                            };
+                        }
+                        if (kSlider) {
+                            kSlider.oninput = function() {
+                                kValue = parseInt(this.value);
+                                document.getElementById('kValue').textContent = kValue;
+                                if (animationStep >= 4) {
+                                    drawKNNAnimation();
+                                }
+                            };
+                        }
+                    }
+                }, 100);
+            }
+        }
+        
+        function changeSlide(direction) {
+            currentSlide += direction;
+            showSlide(currentSlide);
+        }
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+            if (e.key === 'ArrowRight') changeSlide(1);
+        });
+        
+        showSlide(0);
+    </script>
+</body>
+</html>
